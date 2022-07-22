@@ -400,8 +400,8 @@ v2_network=tcp
 v2_security=xtls
 
 v2_alpn=http/1.1"  >  $v2_global_conf
-    
-    if ! git clone https://github.com/oceans-wu/ys-v2ray -b master /etc/v2ray/yisu/ --depth=1; then
+
+    if ! git clone clone https://github.com/oceans-wu/ys-v2ray.git /etc/v2ray/yisu/ --depth=1; then
         info_log "项目克隆完成"
     else
         error_log "项目克隆失败,请检查你的网络"
