@@ -200,12 +200,12 @@ get_version() {
 download_v2ray() {
     DOWNLOAD_LINK="https://github.com/v2fly/v2ray-core/releases/download/$RELEASE_VERSION/v2ray-linux-$MACHINE.zip"
     echo "下载V2Ray存档: $DOWNLOAD_LINK"
-    if ! curl -x "${PROXY}" -R -H 'Cache-Control: no-cache' -o "$ZIP_FILE" "$DOWNLOAD_LINK"; then
+    if ! curl --progress -x "${PROXY}" -R -H 'Cache-Control: no-cache' -o "$ZIP_FILE" "$DOWNLOAD_LINK"; then
         error_log "下载失败！请检查您的网络或重试."
         return 1
     fi
     echo "下载V2Ray存档的验证文件: $DOWNLOAD_LINK.dgst"
-    if ! curl -x "${PROXY}" -sSR -H 'Cache-Control: no-cache' -o "$ZIP_FILE.dgst" "$DOWNLOAD_LINK.dgst"; then
+    if ! curl --progress -x "${PROXY}" -sSR -H 'Cache-Control: no-cache' -o "$ZIP_FILE.dgst" "$DOWNLOAD_LINK.dgst"; then
         error_log "下载失败！请检查您的网络或重试."
         return 1
     fi
@@ -379,7 +379,7 @@ remove_v2ray() {
 
 env_init() {
     install_software git git
-    if [ -d "/etc/v2ray/yisu/" ]; then
+    if [[ -d "/etc/v2ray/yisu/" ]]; then
         rm -rf "/etc/v2ray/yisu"
     else
         mkdir -p "/etc/v2ray/yisu"
@@ -518,14 +518,14 @@ pause() {
 
 get_ip() {
     ip=$(curl -s https://ipinfo.io/ip)
-    [[ -z $ip ]] && ip=$(curl -s https://api.ip.sb/ip)
-    [[ -z $ip ]] && ip=$(curl -s https://api.ipify.org)
-    [[ -z $ip ]] && ip=$(curl -s https://ip.seeip.org)
-    [[ -z $ip ]] && ip=$(curl -s https://ifconfig.co/ip)
-    [[ -z $ip ]] && ip=$(curl -s https://api.myip.com | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}")
-    [[ -z $ip ]] && ip=$(curl -s icanhazip.com)
-    [[ -z $ip ]] && ip=$(curl -s myip.ipip.net | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}")
-    [[ -z $ip ]] && echo -e "\n$red 这垃圾小鸡扔了吧！$none\n" && exit
+   [[ -z "$ip" ]] && ip=$(curl -s https://api.ip.sb/ip)
+   [[ -z "$ip" ]] && ip=$(curl -s https://api.ipify.org)
+   [[ -z "$ip" ]] && ip=$(curl -s https://ip.seeip.org)
+   [[ -z "$ip" ]] && ip=$(curl -s https://ifconfig.co/ip)
+   [[ -z "$ip" ]] && ip=$(curl -s https://api.myip.com | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}")
+   [[ -z "$ip" ]] && ip=$(curl -s icanhazip.com)
+   [[ -z "$ip" ]] && ip=$(curl -s myip.ipip.net | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}")
+   [[ -z "$ip" ]] && echo -e "\n$red 这垃圾小鸡扔了吧！$none\n" && exit
 }
 
 
@@ -545,7 +545,7 @@ v2ray_port() {
     while :; do 
         echo -e "请输入 "${yellow}"V2Ray"${reset}" 端口 ["${magenta}"10000-65535"${reset}"]"
         read -p "$(echo -e "(默认端口: ${magenta}${random}${reset}):")" v2_port
-        [ -z "$v2_port" ] && v2_port=$random
+        [[ -z "$v2_port" ]] && v2_port=$random
         case $v2_port in
             [1-9][0-9][0-9][0-9] | [1-5][0-9][0-9][0-9][0-9] | 6[0-4][0-9][0-9][0-9] | 65[0-4][0-9][0-9] | 655[0-3][0-5])
 
@@ -574,7 +574,7 @@ v2ray_protocol() {
 		    done
         echo 
         read -p "$(echo -e "(默认传输组合: ${aoi}${protocol[0]}${reset})"):" protocol_num
-		    [ -z "$protocol_num" ] && protocol_num=1
+		    [[ -z "$protocol_num" ]] && protocol_num=1
         case $protocol_num in 
             1)
                 v2_protocol='vless'
@@ -620,7 +620,7 @@ v2ray_flow() {
             done
 	      echo
 	      read -p "$(echo -e "(默认流控：${aoi}${flow[2]}${reset})"):" v2_flow
-	      [ -z "$v2_flow" ] && v2_flow=3
+	      [[ -z "$v2_flow" ]] && v2_flow=3
 	      case $v2_flow in
             [1-4])
                 v2_flow=${flow[$v2_flow - 1]}
@@ -664,36 +664,33 @@ install_info() {
 }
 
 info_mes() {
-        echo "------------------------------------ 配置信息 --------------------------------------------"
-	      echo -e "${yellow} 地址 (Address) ${reset} = ${aoi}${ip}${reset}"
-        echo
-	      echo -e "${yellow} 端 口 (Port)${reset} = ${aoi}${v2_port}${reset}"
-	      echo
-        echo -e "${yellow} 用户ID (User ID / UUID) ${reset} = ${aoi}${v2_uuid}${reset}"
-        echo
-        echo -e "${yellow} 传输组合(protocol) ${reset} = ${aoi}${protocol[1]}${reset}"
-        echo
-        echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
-        echo
-        echo -e "${yellow} 加密(encryption) ${reset} = ${aoi}none${reset}"
-        echo
-        echo -e "${yellow} 伪装类型(type) ${reset} = ${aoi}none${reset}"
-        echo
-        echo -e "---------- V2Ray vless URL / V2RayNG v0.4.1+ / V2RayN v2.1+ / 仅适合部分客户端 -------------"
-        echo
-        echo -e "${aoi}${v2_url}${reset}"
-        echo
-        echo "--------------------------------------- END --------------------------------------------------"
+    echo "------------------------------------ 配置信息 --------------------------------------------"
+    echo -e "${yellow} 地址 (Address) ${reset} = ${aoi}${ip}${reset}"
+    echo
+    echo -e "${yellow} 端 口 (Port)${reset} = ${aoi}${v2_port}${reset}"
+    echo
+    echo -e "${yellow} 用户ID (User ID / UUID) ${reset} = ${aoi}${v2_uuid}${reset}"
+    echo
+    echo -e "${yellow} 传输组合(protocol) ${reset} = ${aoi}${protocol[1]}${reset}"
+    echo
+    echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
+    echo
+    echo -e "${yellow} 加密(encryption) ${reset} = ${aoi}none${reset}"
+    echo
+    echo -e "${yellow} 伪装类型(type) ${reset} = ${aoi}none${reset}"
+    echo
+    echo -e "---------- V2Ray vless URL / V2RayNG v0.4.1+ / V2RayN v2.1+ / 仅适合部分客户端 -------------"
+    echo
+    echo -e "${aoi}${v2_url}${reset}"
+    echo
+    echo "--------------------------------------- END --------------------------------------------------"
 }
 
 get_install_info() {
 
     clear
-	  if [ ! -z $v2_protocol_network_security ]; then
-		    get_vless_url
-		    info_mes
-	  else
-		    if [ -f ${v2_global_conf} ]; then
+	  if [[ -z "$v2_protocol_network_security" ]]; then
+	      if [[ -f "$v2_global_conf" ]]; then
 		        . ${v2_global_conf}
 		        get_ip
             get_vless_url
@@ -702,6 +699,10 @@ get_install_info() {
 		    else
 			      error_log "参数有误请重新安装"
 	    	fi
+
+	  else
+	      get_vless_url
+		    info_mes
   	fi
 }
 
@@ -710,7 +711,7 @@ get_vless_url() {
 }
 
 v2_make_conf() {
-		if [ -f "$v2_conf" ]; then
+		if [[ -f "$v2_conf" ]]; then
         rm -rf $v2_conf
 		fi 
 		sed -i "s/^v2_port.*$/v2_port=${v2_port}/" $v2_global_conf
