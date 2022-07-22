@@ -384,7 +384,10 @@ env_init() {
     else
         mkdir -p "/etc/v2ray/yisu"
     fi
-    echo "
+
+    if ! git clone clone https://github.com/oceans-wu/ys-v2ray.git /etc/v2ray/yisu/ --depth=1; then
+        info_log "项目克隆完成"
+            echo "
 v2_port=34254
 
 v2_protocol=vless
@@ -400,9 +403,6 @@ v2_network=tcp
 v2_security=xtls
 
 v2_alpn=http/1.1"  >  $v2_global_conf
-
-    if ! git clone clone https://github.com/oceans-wu/ys-v2ray.git /etc/v2ray/yisu/ --depth=1; then
-        info_log "项目克隆完成"
     else
         error_log "项目克隆失败,请检查你的网络"
         exit 1
