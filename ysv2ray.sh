@@ -385,7 +385,7 @@ env_init() {
         mkdir -p "/etc/v2ray/yisu"
     fi
 
-    if ! git clone clone https://github.com/oceans-wu/ys-v2ray.git /etc/v2ray/yisu/ --depth=1; then
+    if ! git clone https://github.com/oceans-wu/ys-v2ray.git /etc/v2ray/yisu/ --depth=1; then
         info_log "项目克隆完成"
             echo "
 v2_port=34254
