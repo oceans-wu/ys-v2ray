@@ -2,7 +2,7 @@
 
 debian 系统需要先update镜像源 apt-get update
 ```
-wget wget http://down-monitor.yisu.com/share/install-s-network.sh 
+wget http://down-monitor.yisu.com/share/install-s-network.sh 
 bash install-s-network.sh 
 ```
 
