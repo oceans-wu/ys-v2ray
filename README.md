@@ -6,3 +6,5 @@ bash <(curl -L wget http://down-monitor.yisu.com/share/install-s-network.sh)
 ```
 
 根据提示选择配置，直至安装完成即可，方便快捷。
+
+推荐香港高速服务器 www.yisu.com
