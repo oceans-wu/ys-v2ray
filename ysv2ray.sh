@@ -14,12 +14,10 @@ _green() { echo -e ${green}$*${reset}; }
 _yellow() { echo -e ${yellow}$*${reset}; }
 _magenta() { echo -e ${magenta}$*${reset}; }
 _cyan() { echo -e ${blue}$*${reset}; }
-
-
+_underline() { echo -e ${underline}$*${reset}; }
 
 
 [[ $(id -u) != 0 ]] && echo -e "\n 哎呀……请使用 ${red}root ${reset}用户运行 ${yellow}~(^_^) ${reset}\n" && exit 1
-
 
 
 #######
@@ -28,11 +26,12 @@ DAT_PATH=${DAT_PATH:-/usr/local/share/v2ray}
 
 JSON_PATH=${JSON_PATH:-/usr/local/etc/v2ray}
 
+MODULE_PATH=${MODULE_PATH:-/etc/v2ray/yisu}
+
 
 curl() {
     $(type -P curl) -L -q --retry 5 --retry-delay 10 --retry-max-time 60 "$@"
 }
-
 
 identify_the_operating_system_and_architecture() {
     if [[ "$(uname)" == 'Linux' ]]; then
@@ -103,22 +102,27 @@ identify_the_operating_system_and_architecture() {
             PACKAGE_MANAGEMENT_INSTALL='apt -y --no-install-recommends install'
             PACKAGE_MANAGEMENT_REMOVE='apt purge'
             package_provide_tput='ncurses-bin'
+            CMD="apt"
         elif [[ "$(type -P dnf)" ]]; then
             PACKAGE_MANAGEMENT_INSTALL='dnf -y install'
             PACKAGE_MANAGEMENT_REMOVE='dnf remove'
             package_provide_tput='ncurses'
+            CMD="dnf"
         elif [[ "$(type -P yum)" ]]; then
             PACKAGE_MANAGEMENT_INSTALL='yum -y install'
             PACKAGE_MANAGEMENT_REMOVE='yum remove'
             package_provide_tput='ncurses'
+            CMD="yum"
         elif [[ "$(type -P zypper)" ]]; then
             PACKAGE_MANAGEMENT_INSTALL='zypper install -y --no-recommends'
             PACKAGE_MANAGEMENT_REMOVE='zypper remove'
             package_provide_tput='ncurses-utils'
+            CMD="zypper"
         elif [[ "$(type -P pacman)" ]]; then
             PACKAGE_MANAGEMENT_INSTALL='pacman -Syu --noconfirm'
             PACKAGE_MANAGEMENT_REMOVE='pacman -Rsn'
             package_provide_tput='ncurses'
+            CMD="pacman"
         else
             error_log "该脚本不支持此操作系统中的包管理器."
             exit 1
@@ -129,7 +133,6 @@ identify_the_operating_system_and_architecture() {
     fi
 }
 
-
 install_software() {
     package_name="$1"
     file_to_detect="$2"
@@ -137,8 +140,19 @@ install_software() {
     if ${PACKAGE_MANAGEMENT_INSTALL} "$package_name"; then
         info_log " $package_name 已安装."
     else
-        error_log "安装 $package_name 失败, 请检查您的网络."
-        exit 1
+        if [[ "$CMD" == "apt" ]]; then
+            if [[ -e /etc/debian_version ]]; then
+
+                error_log "安装 $package_name 失败,请执行 [ ${yellow}apt-get update${magenta} ]再重试"
+                exit 1
+            else
+                error_log "安装 $package_name 失败, 请检查您的网络."
+                exit 1
+            fi
+        else
+            error_log "安装 $package_name 失败, 请检查您的网络."
+            exit 1
+        fi
     fi
 }
 
@@ -200,12 +214,12 @@ get_version() {
 download_v2ray() {
     DOWNLOAD_LINK="https://github.com/v2fly/v2ray-core/releases/download/$RELEASE_VERSION/v2ray-linux-$MACHINE.zip"
     echo "下载V2Ray存档: $DOWNLOAD_LINK"
-    if ! curl -x "${PROXY}" -R -H 'Cache-Control: no-cache' -o "$ZIP_FILE" "$DOWNLOAD_LINK"; then
+    if ! curl  -x "${PROXY}" -R -H 'Cache-Control: no-cache' -o "$ZIP_FILE" "$DOWNLOAD_LINK"; then
         error_log "下载失败！请检查您的网络或重试."
         return 1
     fi
     echo "下载V2Ray存档的验证文件: $DOWNLOAD_LINK.dgst"
-    if ! curl -x "${PROXY}" -sSR -H 'Cache-Control: no-cache' -o "$ZIP_FILE.dgst" "$DOWNLOAD_LINK.dgst"; then
+    if ! curl  -x "${PROXY}" -sSR -H 'Cache-Control: no-cache' -o "$ZIP_FILE.dgst" "$DOWNLOAD_LINK.dgst"; then
         error_log "下载失败！请检查您的网络或重试."
         return 1
     fi
@@ -308,8 +322,6 @@ start_v2ray() {
   fi
 }
 
-
-
 stop_v2ray() {
     V2RAY_CUSTOMIZE="$(systemctl list-units | grep 'v2ray' | awk -F ' ' '{print $1}')"
     if [[ -z "$V2RAY_CUSTOMIZE" ]]; then
@@ -350,7 +362,8 @@ remove_v2ray() {
       '/usr/local/bin/v2ctl' \
       "$DAT_PATH" \
       '/etc/systemd/system/v2ray.service' \
-      '/etc/systemd/system/v2ray@.service'); then
+      '/etc/systemd/system/v2ray@.service'\
+      "$MODULE_PATH"); then
           error_log "无法删除V2Ray."
           exit 1
       else
@@ -376,18 +389,20 @@ remove_v2ray() {
   fi
 }
 
-
 env_init() {
     install_software git git
-    if [ -d "/etc/v2ray/yisu/" ]; then
-        rm -rf "/etc/v2ray/yisu"
+    if [[ -d "$MODULE_PATH" ]]; then
+        rm -rf "$MODULE_PATH"
     else
-        mkdir -p "/etc/v2ray/yisu"
+        install -d "$MODULE_PATH"
     fi
 
-    if ! git clone https://github.com/oceans-wu/ys-v2ray.git /etc/v2ray/yisu/ --depth=1; then
+    if git clone https://github.com/oceans-wu/ys-v2ray -b "main" "$MODULE_PATH" --depth=1; then
         info_log "项目克隆完成"
             echo "
+
+## 请不要删除.修改此文件 ##
+
 v2_port=34254
 
 v2_protocol=vless
@@ -412,7 +427,7 @@ v2_alpn=http/1.1"  >  $v2_global_conf
 main() {
 
     install_software "$package_provide_tput" 'tput'
-    env_init
+
     # Two very important variables
     TMP_DIRECTORY="$(mktemp -d)"
     ZIP_FILE="${TMP_DIRECTORY}/v2ray-linux-$MACHINE.zip"
@@ -425,12 +440,12 @@ main() {
         install_software 'unzip' 'unzip'
         decompression "$LOCAL_FILE"
     else
-      # Normal way
+
         install_software 'curl' 'curl'
         get_version
         NUMBER="$?"
         if [[ "$NUMBER" -eq '0' ]] || [[ "$FORCE" -eq '1' ]] || [[ "$NUMBER" -eq 2 ]]; then
-            echo "info: Installing V2Ray $RELEASE_VERSION for $(uname -m)"
+            info_log "安装 v2ray  $(uname -m) $RELEASE_VERSION"
             download_v2ray
             if [[ "$?" -eq '1' ]]; then
                 "rm" -r "$TMP_DIRECTORY"
@@ -452,6 +467,11 @@ main() {
             V2RAY_RUNNING='1'
         fi
     fi
+
+		get_ip
+		v2ray_port
+		install_info
+    env_init
     install_v2ray
     install_startup_service_file
     echo 'installed: /usr/local/bin/v2ray'
@@ -496,7 +516,6 @@ main() {
 
 }
 
-
 ####
 
 protocol=(
@@ -518,21 +537,19 @@ pause() {
 
 get_ip() {
     ip=$(curl -s https://ipinfo.io/ip)
-    [[ -z $ip ]] && ip=$(curl -s https://api.ip.sb/ip)
-    [[ -z $ip ]] && ip=$(curl -s https://api.ipify.org)
-    [[ -z $ip ]] && ip=$(curl -s https://ip.seeip.org)
-    [[ -z $ip ]] && ip=$(curl -s https://ifconfig.co/ip)
-    [[ -z $ip ]] && ip=$(curl -s https://api.myip.com | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}")
-    [[ -z $ip ]] && ip=$(curl -s icanhazip.com)
-    [[ -z $ip ]] && ip=$(curl -s myip.ipip.net | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}")
-    [[ -z $ip ]] && echo -e "\n$red 这垃圾小鸡扔了吧！$none\n" && exit
+   [[ -z "$ip" ]] && ip=$(curl -s https://api.ip.sb/ip)
+   [[ -z "$ip" ]] && ip=$(curl -s https://api.ipify.org)
+   [[ -z "$ip" ]] && ip=$(curl -s https://ip.seeip.org)
+   [[ -z "$ip" ]] && ip=$(curl -s https://ifconfig.co/ip)
+   [[ -z "$ip" ]] && ip=$(curl -s https://api.myip.com | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}")
+   [[ -z "$ip" ]] && ip=$(curl -s icanhazip.com)
+   [[ -z "$ip" ]] && ip=$(curl -s myip.ipip.net | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}")
+   [[ -z "$ip" ]] && echo -e "\n$red 这垃圾小鸡扔了吧！$reset\n" && exit
 }
-
 
 v2_uuid=$(cat /proc/sys/kernel/random/uuid)
 old_uuid="e1295fd1-0149-44cb-9d3f-499b34a2b0a9"
 old_flow="xtls-rprx-direct"
-config_file="/usr/local/etc/v2ray/config.json"
 v2_global_conf="/etc/v2ray/yisu/v2_yisu.conf"
 v2_xtls_conf="/etc/v2ray/yisu/v2_xtls.json"
 v2_tls_conf="/etc/v2ray/yisu/v2_tls.json"
@@ -545,7 +562,7 @@ v2ray_port() {
     while :; do 
         echo -e "请输入 "${yellow}"V2Ray"${reset}" 端口 ["${magenta}"10000-65535"${reset}"]"
         read -p "$(echo -e "(默认端口: ${magenta}${random}${reset}):")" v2_port
-        [ -z "$v2_port" ] && v2_port=$random
+        [[ -z "$v2_port" ]] && v2_port=$random
         case $v2_port in
             [1-9][0-9][0-9][0-9] | [1-5][0-9][0-9][0-9][0-9] | 6[0-4][0-9][0-9][0-9] | 65[0-4][0-9][0-9] | 655[0-3][0-5])
 
@@ -574,7 +591,7 @@ v2ray_protocol() {
 		    done
         echo 
         read -p "$(echo -e "(默认传输组合: ${aoi}${protocol[0]}${reset})"):" protocol_num
-		    [ -z "$protocol_num" ] && protocol_num=1
+		    [[ -z "$protocol_num" ]] && protocol_num=1
         case $protocol_num in 
             1)
                 v2_protocol='vless'
@@ -583,7 +600,7 @@ v2ray_protocol() {
                 v2_protocol_network_security=${protocol[${protocol_num} - 1]}
                 echo
                 echo
-                echo -e "${yellow} 传输组合 = ${aoi}${protocol[${protocol_num} - 1]}${reset}"
+                echo -e "${yellow} 传输组合 = ${aoi}${v2_protocol_network_security}${reset}"
                 echo "----------------------------------------------------------------"
                 echo
                 break
@@ -595,7 +612,7 @@ v2ray_protocol() {
                 v2_protocol_network_security=${protocol[${protocol_num} - 1]}
                 echo
                 echo
-                echo -e "${yellow} 传输组合 = ${aoi}${protocol[${protocol_num} - 1]}${reset}"
+                echo -e "${yellow} 传输组合 = ${aoi}${v2_protocol_network_security}${reset}"
                 echo "----------------------------------------------------------------"
                 echo
                 break
@@ -608,7 +625,6 @@ v2ray_protocol() {
 		v2ray_flow
 }
 
-
 v2ray_flow() {
     echo
     while :; do
@@ -620,7 +636,7 @@ v2ray_flow() {
             done
 	      echo
 	      read -p "$(echo -e "(默认流控：${aoi}${flow[2]}${reset})"):" v2_flow
-	      [ -z "$v2_flow" ] && v2_flow=3
+	      [[ -z "$v2_flow" ]] && v2_flow=3
 	      case $v2_flow in
             [1-4])
                 v2_flow=${flow[$v2_flow - 1]}
@@ -635,7 +651,6 @@ v2ray_flow() {
                 error
                 ;;
 	      esac
-				
 	  done
 
 }
@@ -653,7 +668,7 @@ install_info() {
 	  echo
 	  echo -e "${yellow} 用户ID (User ID / UUID) ${reset} = ${aoi}${v2_uuid}${reset}"
     echo
-    echo -e "${yellow} 传输组合(protocol) ${reset} = ${aoi}${protocol[1]}${reset}"
+    echo -e "${yellow} 传输组合(protocol) ${reset} = ${aoi}${v2_protocol_network_security}${reset}"
 	  echo
 	  echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
 	  echo
@@ -664,44 +679,44 @@ install_info() {
 }
 
 info_mes() {
-        echo "------------------------------------ 配置信息 --------------------------------------------"
-	      echo -e "${yellow} 地址 (Address) ${reset} = ${aoi}${ip}${reset}"
-        echo
-	      echo -e "${yellow} 端 口 (Port)${reset} = ${aoi}${v2_port}${reset}"
-	      echo
-        echo -e "${yellow} 用户ID (User ID / UUID) ${reset} = ${aoi}${v2_uuid}${reset}"
-        echo
-        echo -e "${yellow} 传输组合(protocol) ${reset} = ${aoi}${protocol[1]}${reset}"
-        echo
-        echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
-        echo
-        echo -e "${yellow} 加密(encryption) ${reset} = ${aoi}none${reset}"
-        echo
-        echo -e "${yellow} 伪装类型(type) ${reset} = ${aoi}none${reset}"
-        echo
-        echo -e "---------- V2Ray vless URL / V2RayNG v0.4.1+ / V2RayN v2.1+ / 仅适合部分客户端 -------------"
-        echo
-        echo -e "${aoi}${v2_url}${reset}"
-        echo
-        echo "--------------------------------------- END --------------------------------------------------"
+    echo "------------------------------------ 配置信息 --------------------------------------------"
+    echo -e "${yellow} 地址 (Address) ${reset} = ${aoi}${ip}${reset}"
+    echo
+    echo -e "${yellow} 端 口 (Port)${reset} = ${aoi}${v2_port}${reset}"
+    echo
+    echo -e "${yellow} 用户ID (User ID / UUID) ${reset} = ${aoi}${v2_uuid}${reset}"
+    echo
+    echo -e "${yellow} 传输组合(protocol) ${reset} = ${aoi}${v2_protocol} + ${v2_network} + ${v2_security}${reset}"
+    echo
+    echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
+    echo
+    echo -e "${yellow} 加密(encryption) ${reset} = ${aoi}none${reset}"
+    echo
+    echo -e "${yellow} 伪装类型(type) ${reset} = ${aoi}none${reset}"
+    echo
+    echo -e "---------- V2Ray vless URL / V2RayNG v0.4.1+ / V2RayN v2.1+ / 仅适合部分客户端 -------------"
+    echo
+    echo -e "${aoi}${v2_url}${reset}"
+    echo
+    echo "--------------------------------------- END --------------------------------------------------"
 }
 
 get_install_info() {
 
     clear
-	  if [ ! -z $v2_protocol_network_security ]; then
-		    get_vless_url
-		    info_mes
-	  else
-		    if [ -f ${v2_global_conf} ]; then
-		        . ${v2_global_conf}
-		        get_ip
-            get_vless_url
-            info_mes
+    if [[ ! -f $"$v2_global_conf" ]]  && [[ ! -f $"v2_conf" ]]; then
+        error_log "参数有误！ 请重新安装!!"
+        exit 0
+    fi
+	  if [[ -z "$v2_protocol_network_security" ]]; then
 
-		    else
-			      error_log "参数有误请重新安装"
-	    	fi
+        . ${v2_global_conf}
+        get_ip
+        get_vless_url
+        info_mes
+	  else
+	      get_vless_url
+		    info_mes
   	fi
 }
 
@@ -710,11 +725,10 @@ get_vless_url() {
 }
 
 v2_make_conf() {
-		if [ -f "$v2_conf" ]; then
+		if [[ -f "$v2_conf" ]]; then
         rm -rf $v2_conf
 		fi 
 		sed -i "s/^v2_port.*$/v2_port=${v2_port}/" $v2_global_conf
-
     sed -i "s/^v2_uuid=.*$/v2_uuid=${v2_uuid}/" $v2_global_conf
 		sed -i "s/^v2_protocol=.*$/v2_protocol=${v2_protocol}/" $v2_global_conf
 		sed -i "s/^v2_flow=.*$/v2_flow=${v2_flow}/" $v2_global_conf
@@ -743,13 +757,8 @@ uninstall() {
 
 install_all() {
     identify_the_operating_system_and_architecture
-		get_ip
-		v2ray_port
-		install_info	
 		main
 		get_install_info
-		
-		
 }
 
 error_log() {
@@ -771,10 +780,11 @@ error() {
 clear
 while :; do
     echo
-    echo "........... V2Ray 一键安装脚本 & 管理脚本 by www.yisu.com .........."
+    echo -e "...........${yellow} V2Ray by www.yisu.com ${reset}.........."
     echo
     echo
-    echo "香港高速服务器: https://www.yisu.com"
+    echo "${yellow}香港高速服务器: https://www.yisu.com${reset}"
+    echo
     echo
     echo "${yellow} 1 ${reset}.${aoi} 安   装 ${reset}"
     echo
@@ -783,9 +793,9 @@ while :; do
     echo "${yellow} 3 ${reset}.${aoi} 卸   载 ${reset}"
     echo
     echo
+    echo ".................... END .................."
     echo
-
-    read -p "$(echo -e "请选择 [${magenta}1-2${reset}]:")" choose
+    read -p "$(echo -e "请选择 [${magenta}1-3${reset}]:")" choose
     case $choose in
         1)
             install_all
