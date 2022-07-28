@@ -1,4 +1,4 @@
-简单的一键安装V2ray脚本，支持自动配置 vless + xtls + tcp 和 vless + tls + tcp 传输协议
+简单的一键安装V2ray脚本，支持自动配置 vless + tls + tcp 和 vless + tcp 传输协议
 
 debian 系统需要先update镜像源 apt-get update
 ```
