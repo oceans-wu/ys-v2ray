@@ -415,7 +415,7 @@ v2_dest_port=80
 
 v2_network=tcp
 
-v2_security=xtls
+v2_security=tls
 
 v2_alpn=http/1.1"  >  $v2_global_conf
     else
@@ -519,8 +519,8 @@ main() {
 ####
 
 protocol=(
-    "VLESS + XTLS + TCP"
     "VLESS + TLS + TCP"
+    "VLESS + TCP"
 )
 
 flow=(
@@ -551,8 +551,8 @@ v2_uuid=$(cat /proc/sys/kernel/random/uuid)
 old_uuid="e1295fd1-0149-44cb-9d3f-499b34a2b0a9"
 old_flow="xtls-rprx-direct"
 v2_global_conf="/etc/v2ray/yisu/v2_yisu.conf"
-v2_xtls_conf="/etc/v2ray/yisu/v2_xtls.json"
 v2_tls_conf="/etc/v2ray/yisu/v2_tls.json"
+v2_none_conf="/etc/v2ray/yisu/v2_none.json"
 v2_conf="/usr/local/etc/v2ray/config.json"
 
 v2ray_port() {
@@ -596,7 +596,7 @@ v2ray_protocol() {
             1)
                 v2_protocol='vless'
                 v2_network='tcp'
-                v2_security='xtls'
+                v2_security='xtl'
                 v2_protocol_network_security=${protocol[${protocol_num} - 1]}
                 echo
                 echo
@@ -608,7 +608,7 @@ v2ray_protocol() {
             2)
                 v2_protocol='vless'
                 v2_network='tcp'
-                v2_security='tls'
+                v2_security='none'
                 v2_protocol_network_security=${protocol[${protocol_num} - 1]}
                 echo
                 echo
@@ -622,7 +622,8 @@ v2ray_protocol() {
                 ;;
         esac
     done
-		v2ray_flow
+    flow_show="xtls-rprx-direct"
+#		v2ray_flow
 }
 
 v2ray_flow() {
@@ -688,8 +689,8 @@ info_mes() {
     echo
     echo -e "${yellow} 传输组合(protocol) ${reset} = ${aoi}${v2_protocol} + ${v2_network} + ${v2_security}${reset}"
     echo
-    echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
-    echo
+#    echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
+#    echo
     echo -e "${yellow} 加密(encryption) ${reset} = ${aoi}none${reset}"
     echo
     echo -e "${yellow} 伪装类型(type) ${reset} = ${aoi}none${reset}"
@@ -736,19 +737,18 @@ v2_make_conf() {
     sed -i "s/^v2_security=.*$/v2_security=${v2_security}/" $v2_global_conf
 		
     case $v2_protocol_network_security in
-		"VLESS + XTLS + TCP")
-        cp $v2_xtls_conf $v2_conf
-				;;
-		"VLESS + TLS + TCP")
+		"VLESS + XTL + TCP")
         cp $v2_tls_conf $v2_conf
+				;;
+		"VLESS + TCP")
+        cp $v2_none_conf $v2_conf
 				;;
 		*)
         error
 				;;
     esac
-		sed -i "7s/44330/${v2_port}/;
-		12s/${old_uuid}/${v2_uuid}/;
-		13s/${old_flow}/$v2_flow/" $v2_conf	
+		sed -i "9s/44330/${v2_port}/;
+		14s/${old_uuid}/${v2_uuid}/" $v2_conf
 }
 
 uninstall() {

@@ -29,7 +29,7 @@
       },
       "streamSettings": {
         "network": "tcp",
-        "security": "tls",
+        "security": "none",
         "tlsSettings": {
           "alpn": [
             "http/1.1"
