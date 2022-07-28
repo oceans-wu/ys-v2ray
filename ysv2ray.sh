@@ -560,7 +560,7 @@ v2ray_port() {
     local random=$(shuf -i20001-65535 -n1)
     echo
     while :; do 
-        echo -e "请输入 "${yellow}"V2Ray"${reset}" 端口 ["${magenta}"10000-65535"${reset}"]"
+        echo -e "请输入 "${yellow}"V2Ray"${reset}" 端口 ["${magenta}"20000-65535"${reset}"]"
         read -p "$(echo -e "(默认端口: ${magenta}${random}${reset}):")" v2_port
         [[ -z "$v2_port" ]] && v2_port=$random
         case $v2_port in
@@ -596,7 +596,7 @@ v2ray_protocol() {
             1)
                 v2_protocol='vless'
                 v2_network='tcp'
-                v2_security='xtl'
+                v2_security='tls'
                 v2_protocol_network_security=${protocol[${protocol_num} - 1]}
                 echo
                 echo
@@ -622,7 +622,7 @@ v2ray_protocol() {
                 ;;
         esac
     done
-    flow_show="xtls-rprx-direct"
+    v2_flow="xtls-rprx-direct"
 #		v2ray_flow
 }
 
@@ -671,8 +671,8 @@ install_info() {
     echo
     echo -e "${yellow} 传输组合(protocol) ${reset} = ${aoi}${v2_protocol_network_security}${reset}"
 	  echo
-	  echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
-	  echo
+#	  echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
+#	  echo
 	  echo "------------- END ----------------"
 	  echo
     pause
@@ -680,6 +680,7 @@ install_info() {
 }
 
 info_mes() {
+
     echo "------------------------------------ 配置信息 --------------------------------------------"
     echo -e "${yellow} 地址 (Address) ${reset} = ${aoi}${ip}${reset}"
     echo
@@ -687,7 +688,7 @@ info_mes() {
     echo
     echo -e "${yellow} 用户ID (User ID / UUID) ${reset} = ${aoi}${v2_uuid}${reset}"
     echo
-    echo -e "${yellow} 传输组合(protocol) ${reset} = ${aoi}${v2_protocol} + ${v2_network} + ${v2_security}${reset}"
+    echo -e "${yellow} 传输组合(protocol) ${reset} = ${v2_protocol_network_security}${reset}"
     echo
 #    echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
 #    echo
@@ -712,6 +713,15 @@ get_install_info() {
 	  if [[ -z "$v2_protocol_network_security" ]]; then
 
         . ${v2_global_conf}
+        case $v2_security in
+            "none")
+                v2_protocol_network_security="${v2_protocol} + ${v2_network}"
+                ;;
+            *)
+                v2_protocol_network_security="${v2_protocol} + ${v2_security} + ${v2_network}"
+                ;;
+        esac
+
         get_ip
         get_vless_url
         info_mes
@@ -722,7 +732,7 @@ get_install_info() {
 }
 
 get_vless_url() {
-    v2_url="vless://${v2_uuid}@${ip}:${v2_port}?security=${v2_security}&flow=${v2_flow}#www.yisu.com_v2ray"
+    v2_url="vless://${v2_uuid}@${ip}:${v2_port}?security=${v2_security}&#www.yisu.com_v2ray"
 }
 
 v2_make_conf() {
@@ -737,7 +747,7 @@ v2_make_conf() {
     sed -i "s/^v2_security=.*$/v2_security=${v2_security}/" $v2_global_conf
 		
     case $v2_protocol_network_security in
-		"VLESS + XTL + TCP")
+		"VLESS + TLS + TCP")
         cp $v2_tls_conf $v2_conf
 				;;
 		"VLESS + TCP")
