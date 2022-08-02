@@ -1,0 +1,54 @@
+{
+  "log": {
+    "access": "/var/log/v2ray/access.log",
+    "error": "/var/log/v2ray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "port": 44330
+      "protocol": "vmess",
+      "settings": {
+        "clients": [
+          {
+            "id": "e1295fd1-0149-44cb-9d3f-499b34a2b0a9",
+            "flow": "xtls-rprx-direct",
+            "level": 0 
+          }
+        ],
+        "decryption": "none",
+        "fallbacks": [
+          {
+            "dest": 80  
+          },
+          {
+            "path": "/websocket",  
+            "dest": 10088,
+            "xver": 1
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "none",
+        "tlsSettings": {
+          "alpn": [
+            "http/1.1"
+          ],
+          "certificates": [
+            {
+              "certificateFile": "/etc/v2ray/yisu/server.crt", 
+              "keyFile": "/etc/v2ray/yisu/server.key" 
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom"
+    }
+  ]
+}
+
