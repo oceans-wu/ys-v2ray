@@ -273,17 +273,7 @@ install_v2ray() {
     if [[ -z "$JSONS_PATH" ]] && [[ ! -d "$JSON_PATH" ]]; then
         install -d "$JSON_PATH"
         echo "{}" > "${JSON_PATH}/config.json"
-    v2_make_conf
         CONFIG_NEW='1'
-    fi
-
-    # 将V2Ray配置文件安装到 $JSONS_PATH
-    if [[ -n "$JSONS_PATH" ]] && [[ ! -d "$JSONS_PATH" ]]; then
-        install -d "$JSONS_PATH"
-        for BASE in 00_log 01_api 02_dns 03_routing 04_policy 05_inbounds 06_outbounds 07_transport 08_stats 09_reverse; do
-            echo '{}' > "${JSONS_PATH}/${BASE}.json"
-        done
-        CONFDIR='1'
     fi
 
     # Used to store V2Ray log files
@@ -311,15 +301,27 @@ install_startup_service_file() {
     SYSTEMD='1'
 }
 
+
+restart_v2ray() {
+    if [[ -f '/etc/systemd/system/v2ray.service' ]]; then
+        if systemctl restart "${V2RAY_CUSTOMIZE:-v2ray}"; then
+            info_log  "v2ray 重启成功"
+        else
+            error_log "v2ray 重启失败"
+            exit 1
+        fi
+    fi
+}
+
 start_v2ray() {
-  if [[ -f '/etc/systemd/system/v2ray.service' ]]; then
-      if systemctl start "${V2RAY_CUSTOMIZE:-v2ray}"; then
-          info_log  "v2ray 启动成功"
-      else
-          error_log "v2ray 启动失败"
-          exit 1
-      fi
-  fi
+    if [[ -f '/etc/systemd/system/v2ray.service' ]]; then
+        if systemctl start "${V2RAY_CUSTOMIZE:-v2ray}"; then
+            info_log  "v2ray 启动成功"
+        else
+            error_log "v2ray 启动失败"
+            exit 1
+        fi
+    fi
 }
 
 stop_v2ray() {
@@ -483,19 +485,9 @@ main() {
     fi
     if [[ "$CONFIG_NEW" -eq '1' ]]; then
         echo "installed: ${JSON_PATH}/config.json"
+        v2_make_conf
     fi
-    if [[ "$CONFDIR" -eq '1' ]]; then
-        echo "installed: ${JSON_PATH}/00_log.json"
-        echo "installed: ${JSON_PATH}/01_api.json"
-        echo "installed: ${JSON_PATH}/02_dns.json"
-        echo "installed: ${JSON_PATH}/03_routing.json"
-        echo "installed: ${JSON_PATH}/04_policy.json"
-        echo "installed: ${JSON_PATH}/05_inbounds.json"
-        echo "installed: ${JSON_PATH}/06_outbounds.json"
-        echo "installed: ${JSON_PATH}/07_transport.json"
-        echo "installed: ${JSON_PATH}/08_stats.json"
-        echo "installed: ${JSON_PATH}/09_reverse.json"
-    fi
+
     if [[ "$LOG" -eq '1' ]]; then
         echo 'installed: /var/log/v2ray/'
         echo 'installed: /var/log/v2ray/access.log'
@@ -582,7 +574,7 @@ v2ray_port() {
                  ;;
         esac
     done
-	v2ray_protocol
+	  v2ray_protocol
 }
 
 v2ray_protocol() {
@@ -720,13 +712,13 @@ info_mes() {
     echo
     echo -e "${yellow} 用户ID (User ID / UUID) ${reset} = ${aoi}${v2_uuid}${reset}"
     echo
-    echo -e "${yellow} 传输组合(protocol) ${reset} = ${v2_protocol_network_security}${reset}"
+    echo -e "${yellow} 传输组合 (Protocol) ${reset} = ${aoi}${v2_protocol_network_security}${reset}"
     echo
 #    echo -e "${yellow} 流控为(flow) ${reset} = ${aoi}${v2_flow}${reset}"
 #    echo
-    echo -e "${yellow} 加密(encryption) ${reset} = ${aoi}none${reset}"
+    echo -e "${yellow} 加密 (Encryption) ${reset} = ${aoi}none${reset}"
     echo
-    echo -e "${yellow} 伪装类型(type) ${reset} = ${aoi}none${reset}"
+    echo -e "${yellow} 伪装类型 (Type) ${reset} = ${aoi}none${reset}"
     echo
     echo -e "---------- V2Ray vless URL / V2RayNG v0.4.1+ / V2RayN v2.1+ / 仅适合部分客户端 -------------"
     echo
@@ -739,7 +731,9 @@ get_install_info() {
 
     clear
     if [[ ! -f $"$v2_global_conf" ]]  && [[ ! -f $"v2_conf" ]]; then
+        echo 
         error_log "参数有误！ 请重新安装!!"
+        echo 
         exit 0
     fi
 	  if [[ -z "$v2_protocol_network_security" ]]; then
@@ -764,7 +758,7 @@ get_install_info() {
 }
 
 get_vless_url() {
-    v2_url="vless://${v2_uuid}@${ip}:${v2_port}?security=${v2_security}&#www.yisu.com_v2ray"
+    v2_url="${v2_protocol}://${v2_uuid}@${ip}:${v2_port}?security=${v2_security}&#www.yisu.com_v2ray"
 }
 
 v2_make_conf() {
@@ -777,11 +771,11 @@ v2_make_conf() {
 		sed -i "s/^v2_flow=.*$/v2_flow=${v2_flow}/" $v2_global_conf
 		sed -i "s/^v2_network=.*$/v2_network=${v2_network}/" $v2_global_conf
     sed -i "s/^v2_security=.*$/v2_security=${v2_security}/" $v2_global_conf
-		echo $v2_protocol_network_security
+
     case $v2_protocol_network_security in
 
 		    "VLESS + TCP + TLS")
-            cp $v2_v2_none_conf $v2_conf
+            cp $v2_none_conf $v2_conf
             sed -i "9s/44330/${v2_port}/;
             14s/${old_uuid}/${v2_uuid}/;
             32s/none/${v2_security}/" $v2_conf
@@ -820,8 +814,26 @@ v2_make_conf() {
 				    ;;
     esac
 
+}
 
-
+change_conf() {
+    if systemctl list-unit-files | grep -qw 'v2ray'; then
+        get_ip
+        v2ray_port
+        get_vless_url
+        info_mes
+        pause
+        v2_make_conf
+        restart_v2ray
+        clear
+        info_mes
+    else
+        clear
+        echo
+        error_log "V2Ray未安装."
+        echo 
+        exit 1
+    fi
 
 
 }
@@ -837,15 +849,15 @@ install_all() {
 }
 
 error_log() {
-    echo -e "${red} error ${reset}: ${magenta} "$*" ${reset}"
+    echo -e "${red} ERROR ${reset}: ${magenta} "$*" ${reset}"
 }
 
 warn_log() {
-    echo -e "${yellow} warnning ${reset}: ${magenta}"$*" ${reset}"
+    echo -e "${yellow} WARNNING ${reset}: ${magenta}"$*" ${reset}"
 }
 
 info_log() {
-    echo -e "${yellow} info ${reset}: ${magenta}"$*" ${reset}"
+    echo -e "${yellow} INFO ${reset}: ${magenta}"$*" ${reset}"
 }
 
 error() {
@@ -863,9 +875,11 @@ while :; do
     echo
     echo "${yellow} 1 ${reset}.${aoi} 安   装 ${reset}"
     echo
-    echo "${yellow} 2 ${reset}.${aoi} 查看配置信息 ${reset}"
+    echo "${yellow} 2 ${reset}.${aoi} 修改配置 ${reset}"
     echo
-    echo "${yellow} 3 ${reset}.${aoi} 卸   载 ${reset}"
+    echo "${yellow} 3 ${reset}.${aoi} 查看配置 ${reset}"
+    echo
+    echo "${yellow} 4 ${reset}.${aoi} 卸   载 ${reset}"
     echo
     echo
     echo ".................... END .................."
@@ -877,10 +891,14 @@ while :; do
             break
             ;;
         2)
-            get_install_info
+            change_conf
             break
             ;;
         3)
+            get_install_info
+            break
+            ;;
+        4)
             uninstall
             break
             ;;
